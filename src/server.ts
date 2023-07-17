@@ -1,5 +1,6 @@
 import * as WebSocket from 'ws';
 import { registerPlayer, findPlayer } from './players';
+import { createRoom, addUserToRoom, updateRoomState } from './rooms';
 
 const wss = new WebSocket.Server({ port: 3000 });
 
@@ -73,6 +74,40 @@ wss.on('connection', (ws: WebSocket) => {
             }
           }
           break;
+
+          case 'create_room':
+            if (player) {
+              const room = createRoom(player);
+              const responseData = {
+                roomId: room.roomId,
+                roomUsers: room.roomUsers.map((user) => user.name),
+              };
+          
+              ws.send(
+                JSON.stringify({
+                  type: 'create_game',
+                  data: responseData,
+                  id: 0,
+                })
+              );
+          
+              const roomsList = updateRoomState();
+              const response = {
+                type: 'update_room',
+                data: roomsList.map((room) => ({
+                  roomId: room.roomId,
+                  roomUsers: room.roomUsers.map((user) => ({ name: user.name, index: 1 })),
+                })),
+                id: 0,
+              };
+              wss.clients.forEach((client) => {
+                if (client !== ws && client.readyState === WebSocket.OPEN) {
+                  client.send(JSON.stringify(response));
+                }
+              });
+            }
+            break;
+
         default:
           break;
       }
